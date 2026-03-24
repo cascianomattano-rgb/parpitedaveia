@@ -21,7 +21,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
 </style>
-""", unsafe_allow_stdio=True)
+(""", unsafe_allow_html=True)
 
 # --- INICIALIZAÇÃO DO BANCO (Session State) ---
 if 'usuarios' not in st.session_state:
