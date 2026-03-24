@@ -1,0 +1,191 @@
+import streamlit as st
+import pandas as pd
+import random
+import time
+from datetime import datetime
+
+# --- CONFIGURAÇÃO DA PÁGINA (Tema Escuro e Ícone) ---
+st.set_page_config(
+    page_title="PRIGUIÇA DO CUCURUCO - Sistema de Apostas",
+    page_icon="🎰",
+    layout="wide", # Usamos layout 'wide' para caber mais informações na central
+    initial_sidebar_state="expanded"
+)
+
+# --- ESTILIZAÇÃO PERSONALIZADA (CSS para deixar chamativo) ---
+st.markdown("""
+<style>
+    [data-testid="stMetricValue"] { font-size: 2.5rem; color: #f59e0b; } /* Cor dourada para métricas */
+    .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; } /* Botões arredondados */
+    .css-1offfwp { background-color: #1a1c24; } /* Fundo da barra lateral mais escuro */
+    h1, h2, h3 { color: #f59e0b; } /* Títulos em dourado */
+</style>
+""", unsafe_allow_stdio=True)
+
+# --- BANCO DE DATOS SIMPLIFICADO (Simulação na Session State) ---
+# Na vida real, carregaríamos de um banco de dados SQL ou arquivo JSON
+if 'usuarios' not in st.session_state:
+    st.session_state.usuarios = {
+        "admin": {"senha": "123", "saldo": 100, "pix": "meu@pix.com", "tipo": "admin"},
+        "joao_silva": {"senha": "456", "saldo": 50, "pix": "joao@email.com", "tipo": "user"}
+    }
+if 'apostas_ativas' not in st.session_state:
+    # Apostas de teste para visualizarmos na central
+    st.session_state.apostas_ativas = [
+        {"hora": "10:15", "user": "joao_silva", "numero": "1234", "valor": 10, "status": "Pendente"},
+        {"hora": "10:30", "user": "joao_silva", "numero": "0582", "valor": 20, "status": "Pendente"}
+    ]
+if 'logado' not in st.session_state:
+    st.session_state.logado = False
+
+# --- FUNÇÃO DE LOGIN ---
+def login():
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.markdown("<h2 style='text-align: center;'>🔐 Entre na sua Conta</h2>", unsafe_allow_stdio=True)
+        with st.form("login"):
+            user = st.text_input("Usuário / CPF")
+            pw = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar no Sistema"):
+                if user in st.session_state.usuarios and st.session_state.usuarios[user]["senha"] == pw:
+                    st.session_state.logado = True
+                    st.session_state.user_atual = user
+                    st.rerun()
+                else:
+                    st.error("❌ Dados incorretos! Tente novamente.")
+
+# --- BARRA LATERAL (Menu de Navegação) ---
+def renderizar_sidebar():
+    user = st.session_state.user_atual
+    tipo_user = st.session_state.usuarios[user]['tipo']
+    
+    st.sidebar.image("https://img.icons8.com/fluent/96/000000/casino-chip.png", width=70)
+    st.sidebar.title("CUCURUCO BETA")
+    st.sidebar.write(f"Conectado como: **{user}**")
+    st.sidebar.divider()
+
+    menu = ["🎰 Painel de Apostas", "💳 Comprar Moedas"]
+    if tipo_user == "admin":
+        menu.append("👑 Central do Dono")
+    
+    escolha = st.sidebar.radio("Navegação", menu)
+    
+    st.sidebar.divider()
+    if st.sidebar.button("Sair do Sistema 👋"):
+        st.session_state.logado = False
+        st.rerun()
+    
+    return escolha
+
+# --- ABA: PAINEL DE APOSTAS (Para Usuários) ---
+def renderizar_painel_apostas():
+    user = st.session_state.user_atual
+    saldo = st.session_state.usuarios[user]['saldo']
+    
+    st.title("🎰 PRIGUIÇA DO CUCURUCO")
+    
+    # Linha de Métricas
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Meu Saldo", f"🪙 {saldo} Moedas")
+    c2.metric("Apostas Ativas", len([a for a in st.session_state.apostas_ativas if a['user'] == user]))
+    c3.info("⏳ Próximo Sorteio AUTOMÁTICO em: **11:55h**")
+
+    # Área para Nova Aposta
+    st.subheader("📝 Fazer Nova Aposta")
+    with st.expander("Clique para abrir o Bilhete de Aposta"):
+        tipo = st.selectbox("Modalidade", ["Sorteio do Milhão", "Cem pra 1", "Rapa-Rapa"])
+        palpite = st.text_input("Seu Número (4 dígitos para Milhão)", max_chars=4)
+        valor = st.number_input("Valor da Aposta", min_value=1, step=5)
+        
+        if st.button("Confirmar Aposta ✅"):
+            if saldo >= valor:
+                st.session_state.usuarios[user]['saldo'] -= valor
+                st.session_state.apostas_ativas.append({
+                    "hora": datetime.now().strftime("%H:%M"),
+                    "user": user,
+                    "numero": palpite,
+                    "valor": valor,
+                    "status": "Pendente"
+                })
+                st.success("Aposta registrada com sucesso! Boa sorte!")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Saldo insuficiente! Recarregue via PIX.")
+
+# --- ABA: COMPRAR MOEDAS (Simulação) ---
+def renderizar_comprar_moedas():
+    st.title("💳 Comprar Moedas via PIX")
+    st.write("Adicione saldo instantaneamente para apostar.")
+    
+    with st.container():
+        st.markdown("### Selecione um Pacote:")
+        c1, c2, c3 = st.columns(3)
+        if c1.button("🪙 50 Moedas (R$ 50,00)"):
+            valor_compra = 50
+        if c2.button("🪙 100 Moedas (R$ 100,00)"):
+            valor_compra = 100
+        if c3.button("🪙 500 Moedas (R$ 500,00)"):
+            valor_compra = 500
+        
+        # Simulação do QR Code (só aparece se clicou em um pacote)
+        if 'valor_compra' in locals():
+            st.divider()
+            st.subheader(f"Pagamento de R$ {valor_compra:.2f} Pendente")
+            st.write("Escaneie o código abaixo no app do seu banco:")
+            st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PIX_CUCURUCO_{valor_compra}_REAIS", caption=f"PIX para {valor_compra} Moedas")
+            st.caption("A confirmação do saldo leva até 2 minutos.")
+
+# --- ABA: CENTRAL DO DONO (Administrativo) ---
+def renderizar_central_dono():
+    st.title("👑 CENTRAL DO DONO - Painel Administrativo")
+    st.write("Gerencie apostas, ganhadores e pagamentos pendentes.")
+
+    # 1. Visão Geral (Dashboard)
+    st.markdown("### Visão Geral")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Apostado Hoje", "🪙 1.250", "+5%")
+    c2.metric("Apostas Ativas", len(st.session_state.apostas_ativas))
+    # Simulação de um valor para pagamento
+    c3.metric("Pagamentos Pendentes", "R$ 450,00", delta_color="inverse")
+
+    # 2. Tabela de Apostas Ativas
+    st.markdown("### Apostas Ativas (Próximo Sorteio)")
+    if not st.session_state.apostas_ativas:
+        st.warning("Nenhuma aposta ativa no momento.")
+    else:
+        # Usamos o Pandas para criar uma tabela bonita
+        df_apostas = pd.DataFrame(st.session_state.apostas_ativas)
+        st.dataframe(df_apostas, use_container_width=True)
+
+    # 3. Ferramenta de Sorteio e Ganhadores (Manual para Teste)
+    st.divider()
+    st.markdown("### Realizar Sorteio Manual")
+    numero_sorteado = st.text_input("Número Sorteado (ex: 1234)", max_chars=4)
+    if st.button("Verificar Ganhadores 🎰"):
+        # Lógica simples de verificação
+        ganhadores = [a for a in st.session_state.apostas_ativas if a['numero'] == numero_sorteado]
+        if ganhadores:
+            st.success(f"Temos {len(ganhadores)} ganhador(es) para o número {numero_sorteado}!")
+            for g in ganhadores:
+                usuario_ganhador = g['user']
+                chave_pix = st.session_state.usuarios[usuario_ganhador]['pix']
+                st.warning(f"🏆 Ganhador: **{usuario_ganhador}** | Chave PIX: **{chave_pix}**")
+                # Botão para simular o pagamento (na central de pagamentos)
+                if st.button(f"Pagar R$ {g['valor'] * 10} via PIX para {usuario_ganhador} 💸"):
+                    st.info("Central de Pagamento Notificada. PIX sendo processado...")
+        else:
+            st.info(f"Nenhum ganhador para o número {numero_sorteado}.")
+
+# --- FLUXO PRINCIPAL DO PROGRAMA ---
+if not st.session_state.logado:
+    login()
+else:
+    escolha = renderizar_sidebar()
+    
+    if escolha == "🎰 Painel de Apostas":
+        renderizar_painel_apostas()
+    elif escolha == "💳 Comprar Moedas":
+        renderizar_comprar_moedas()
+    elif escolha == "👑 Central do Dono":
+        renderizar_central_dono()
